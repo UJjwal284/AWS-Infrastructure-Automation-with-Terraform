@@ -1,62 +1,95 @@
 provider "aws" {
   region     = "us-east-2"
-  access_key = "AKIA22XBOB32L5N7KT4L"
-  secret_key = "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"
+  access_key = var.access_key
+  secret_key = var.secret_key
 }
 
-#resource "aws_vpc" "vpc" {
-#  cidr_block           = "10.0.0.0/16"
-#  enable_dns_hostnames = true
-#  enable_dns_support   = true
-#
-#  tags = {
-#    name = "vpc-tf"
-#  }
-#}
-#
-#resource "aws_subnet" "subnet_public1" {
-#  vpc_id            = aws_vpc.vpc.id
-#  availability_zone = "us-east-2a"
-#  cidr_block        = "10.0.1.0/24"
-#
-#  tags = {
-#    name = "subnet-public-1-tf"
-#  }
-#}
-#
-#resource "aws_subnet" "subnet_public2" {
-#  vpc_id            = aws_vpc.vpc.id
-#  availability_zone = "us-east-2b"
-#  cidr_block        = "10.0.2.0/24"
-#
-#  tags = {
-#    name = "subnet-public-2-tf"
-#  }
-#}
-#
-#resource "aws_subnet" "subnet_private1" {
-#  vpc_id            = aws_vpc.vpc.id
-#  availability_zone = "us-east-2a"
-#  cidr_block        = "10.0.3.0/24"
-#
-#  tags = {
-#    name = "subnet-private-1-tf"
-#  }
-#}
-#
-#resource "aws_subnet" "subnet_private2" {
-#  vpc_id            = aws_vpc.vpc.id
-#  availability_zone = "us-east-2b"
-#  cidr_block        = "10.0.4.0/24"
-#
-#  tags = {
-#    name = "subnet-private-2-tf"
-#  }
-#}
-#
+resource "aws_vpc" "vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    name = "vpc-tf"
+  }
+}
+
+resource "aws_internet_gateway" "internet_gateway" {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = "internet-gateway-tf"
+  }
+}
+
+resource "aws_route_table" "route_table" {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    Name = "route-table-tf"
+  }
+}
+
+resource "aws_route" "route" {
+  route_table_id         = aws_route_table.route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.internet_gateway.id
+
+  tags = {
+    name = "route-tf"
+  }
+}
+
+resource "aws_subnet" "subnet_public1" {
+  vpc_id                  = aws_vpc.vpc.id
+  availability_zone       = "us-east-2a"
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+
+  tags = {
+    name = "subnet-public-1-tf"
+  }
+}
+
+resource "aws_route_table_association" "route_table_association" {
+  subnet_id      = aws_subnet.subnet_public1.id
+  route_table_id = aws_route_table.route_table.id
+}
+
+resource "aws_subnet" "subnet_public2" {
+  vpc_id            = aws_vpc.vpc.id
+  availability_zone = "us-east-2b"
+  cidr_block        = "10.0.2.0/24"
+
+  tags = {
+    name = "subnet-public-2-tf"
+  }
+}
+
+resource "aws_subnet" "subnet_private1" {
+  vpc_id            = aws_vpc.vpc.id
+  availability_zone = "us-east-2a"
+  cidr_block        = "10.0.3.0/24"
+
+  tags = {
+    name = "subnet-private-1-tf"
+  }
+}
+
+resource "aws_subnet" "subnet_private2" {
+  vpc_id            = aws_vpc.vpc.id
+  availability_zone = "us-east-2b"
+  cidr_block        = "10.0.4.0/24"
+
+  tags = {
+    name = "subnet-private-2-tf"
+  }
+}
+
 resource "aws_security_group" "security_group_public" {
   name        = "security-group-public-tf"
   description = "Public Security Group for TF"
+  vpc_id      = aws_vpc.vpc.id
 
   ingress {
     from_port   = 80
@@ -78,27 +111,24 @@ resource "aws_security_group" "security_group_public" {
     to_port     = 0
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    name = "security-group-public-tf"
+  }
 }
-#
-#resource "aws_security_group" "security_group_private" {
-#  name        = "security-group-private-tf"
-#  description = "Private Security Group for TF"
-#  vpc_id      = aws_vpc.vpc.id
-#}
 
 resource "aws_instance" "ec2_machine" {
-  ami                    = "ami-0d406e26e5ad4de53"
-  instance_type          = "t2.micro"
-  key_name               = "test-key"
-  #  subnet_id                   = aws_subnet.subnet_public1.id
-  #  iam_instance_profile        = "EmployeeRoleS3Dynamo"
-  #  associate_public_ip_address = true
-  vpc_security_group_ids = [aws_security_group.security_group_public.id]
+  ami                         = "ami-0d406e26e5ad4de53"
+  instance_type               = "t2.micro"
+  key_name                    = "test-key"
+  subnet_id                   = aws_subnet.subnet_public1.id
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.security_group_public.id]
 
   connection {
     type        = "ssh"
-    user        = "ec2-user"             # User for the selected AMI
-    private_key = file("test-key.pem") # Replace with the path to your SSH private key
+    user        = "ec2-user"
+    private_key = file("test-key.pem")
     host        = self.public_ip
   }
 
