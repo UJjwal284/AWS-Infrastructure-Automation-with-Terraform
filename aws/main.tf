@@ -1,5 +1,7 @@
 provider "aws" {
   region     = "us-east-2"
+  access_key = var.AWS_ACCESS_KEY_ID
+  secret_key = var.AWS_SECRET_ACCESS_KEY
 }
 
 resource "aws_vpc" "vpc" {
@@ -32,10 +34,6 @@ resource "aws_route" "route" {
   route_table_id         = aws_route_table.route_table.id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.internet_gateway.id
-
-  tags = {
-    name = "route-tf"
-  }
 }
 
 resource "aws_subnet" "subnet_public1" {
@@ -126,7 +124,7 @@ resource "aws_instance" "ec2_machine" {
   connection {
     type        = "ssh"
     user        = "ec2-user"
-    private_key = file("test-key.pem")
+    private_key = file("secret/test-key.pem")
     host        = self.public_ip
   }
 
