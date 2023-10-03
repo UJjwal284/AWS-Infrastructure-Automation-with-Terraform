@@ -1,2 +1,3 @@
 /aws/secret/
 /aws/creds.tf
+/aws/test/
