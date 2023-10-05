@@ -1,4 +1,5 @@
 resource "aws_launch_configuration" "launch_configuration" {
+  depends_on      = [aws_db_instance.db_instance]
   name_prefix     = "ec2-tf-"
   image_id        = "ami-0d406e26e5ad4de53"
   instance_type   = "t2.micro"
@@ -6,12 +7,13 @@ resource "aws_launch_configuration" "launch_configuration" {
   security_groups = [aws_security_group.security_group_public.id]
   user_data       = <<-EOF
               #!/bin/bash
+              sudo apt update
               wget https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.rpm
               sudo yum -y install ./jdk-17_linux-x64_bin.rpm
               java -version
               wget https://tf-app-1.s3.us-east-2.amazonaws.com/app.jar
-              nohup java -jar app.jar > output.log 2>&1 &
-              sleep 4
+              nohup java -jar app.jar --spring.datasource.url=jdbc:mysql://${aws_db_instance.db_instance.endpoint}/${aws_db_instance.db_instance.db_name} --spring.datasource.username=${aws_db_instance.db_instance.username} --spring.datasource.password=${aws_db_instance.db_instance.password} > output.log 2>&1 &
+              sleep 5
               EOF
 }
 
@@ -29,7 +31,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
 
   tag {
     key                 = "Name"
-    value               = "example-instance"
+    value               = "instance-tf"
     propagate_at_launch = true
   }
 }
@@ -43,18 +45,26 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "cpu_utilization" {
-  alarm_name          = "example-cpu-utilization"
+  alarm_name          = "cpu-utilization-tf"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = 10
   statistic           = "Average"
-  threshold           = 20
+  threshold           = 30
   alarm_description   = "Scale up when CPU exceeds 20%"
   alarm_actions       = [aws_autoscaling_policy.autoscaling_policy.arn]
 
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.autoscaling_group.name
   }
+}
+
+resource "aws_autoscaling_lifecycle_hook" "instance_termination_hook" {
+  name                   = "instance-termination-hook-tf"
+  autoscaling_group_name = aws_autoscaling_group.autoscaling_group.name
+  default_result         = "ABANDON"
+  heartbeat_timeout      = 100
+  lifecycle_transition   = "autoscaling:EC2_INSTANCE_TERMINATING"
 }
