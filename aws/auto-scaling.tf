@@ -18,12 +18,13 @@ resource "aws_launch_configuration" "launch_configuration" {
 }
 
 resource "aws_autoscaling_group" "autoscaling_group" {
+  depends_on                = [aws_db_instance.db_instance]
   name                      = "autoscaling-group-tf"
   desired_capacity          = 2
   max_size                  = 5
   min_size                  = 1
   health_check_type         = "EC2"
-  health_check_grace_period = 300
+  health_check_grace_period = 100
   force_delete              = true
   launch_configuration      = aws_launch_configuration.launch_configuration.name
   vpc_zone_identifier       = [aws_subnet.subnet_public1.id, aws_subnet.subnet_public2.id]
